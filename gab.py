@@ -14,7 +14,7 @@ import os
 Game Arbitrage Bot
 by bgm
 
-VERSION 0.001
+VERSION 0.101
 Alpha, but less so than of my StoryAggregatorBot.
 
 Anyway.
@@ -25,13 +25,16 @@ This bot responds to a command such as:
 When it sees that, it will scour some sites and get prices 
 for final fantasy 7.
 
+It also responds to [[gamename|console]] to search
+pricecharting.com
+
 Flags right now include:
 
 -pm 		: send a pm instead of reply to message
 
 It will them make a post allllllllllll about it in reply.
 
-Send an email to ninjanerdbgm@gmail.com with any questions.
+Send an email to ninjanerdbgm at gmail dot com with any questions.
 =====================================================================
 """
 
