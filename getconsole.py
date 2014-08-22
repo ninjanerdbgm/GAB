@@ -1,3 +1,13 @@
+"""
+===================================================================================
+This is where I manually tweak the input to return more
+accurate results from duckduckgo and pricecharting.
+
+This is a bit messy, but this bot doesn't have AI yet (which I may work on soon).
+Until it can learn to make better searches on its own, this will have to do.
+===================================================================================
+"""
+
 def getConsole(g,c):
 	gam = ""
 	con = ""
