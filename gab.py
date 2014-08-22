@@ -147,9 +147,113 @@ while True:
 	whatsubs = [x if x.startswith("/r/") else "/r/" + x for x in whatsubs] # This is just to make the terminal output nice.
 
 	print("Searching {} posts for bot requests...".format(", ".join(whatsubs))) 
-	subreddit = r.get_subreddit(SUBREDDITS)
+	searchred = 0
+
+	while searchred == 0:
+		try:
+			subreddit = r.get_subreddit(SUBREDDITS)
+			searchred = 1
+		except:
+			log("Error searching subreddits, trying again in 30 seconds...")
+			time.sleep(30)
 
 	for submission in subreddit.get_hot(limit=500):
+
+		if "[[" in submission.selftext:
+			if cids.find(submission.name) == -1:
+				reply = "# &nbsp;\n"
+
+	                        author = submission.author
+	                        if author.name == BOT_USERNAME: # If, for some reason, this bot makes a selfpost with a command in it.
+	                        	continue
+	                        y = list(find_all(submission.selftext, "[["))
+	                        z = list(find_all(submission.selftext, "]]"))
+	
+	                        numgames = len(y) # How many commands were posted?
+	                        if numgames > 2:
+	                        	numgames = 3
+	
+	                        i = 0
+			
+	                        while i < numgames:
+	                        	search, game, console = "","",""
+	                                x = y[i]+2
+	                                consearch = 0
+	
+	                                while x < z[i]:
+	                                	search += submission.selftext[x]
+	                                        x+=1
+	
+	                                if "|" in search:
+	                                	search = search.split("|")
+	                                        game = search[0]
+	                                        console = search[1]
+	                                        if game:
+	                                        	log("Found a selftext Price Chart request for {} on {}!".format(game,console))
+	                                        else:
+	                                                consearch = 1
+	                                                log("Found a selftext Price Chart request for a console!")
+	                                else:
+	                                	game = search
+	                                        console = None
+	                                        log("Found a selftext Price Chart request for {}!".format(game))
+	
+	                                game,console = getConsole(game,console)
+	                                time.sleep(1)
+	                                gamedata = scrapePC(game,console)
+	                                time.sleep(1)
+	
+	                                if gamedata == 1:       # No search results.
+	                                	"""
+	                                        PLACEHOLDER!  How should we handle missing results?  I don't want to clog
+	                                        up the post with "not found, sorry" messages.
+	                                        """
+	                                        i+=1
+	                                        continue
+	
+	
+	                                """
+	                                gamedata comes back as a list filled with info about the game.
+	                                The order of the info in the list is:
+	                                Game Name, Link URL, Release Date, UPC Code, Loose Price, CIB Price, and New Price.
+	 
+	                                Let's build our reply.
+	                                """
+	                                if consearch == 0:
+	                                	reply += "###Prices for [{}]({}), released for {} on {}:\n".format(gamedata[0],gamedata[1],gamedata[7],gamedata[2])
+	                                else:
+	                                        reply += "###Prices for [{}]({}), released on {}:\n".format(gamedata[0],gamedata[1],gamedata[2])
+	
+	                                reply += " - Loose: **{}** | CIB: **{}** | New: **{}**\n\n".format(gamedata[4],gamedata[5],gamedata[6])
+	
+	                                log("    | Game Title: {}".format(gamedata[0]))
+	                                log("    | Release Date: {}".format(gamedata[2]))
+	                                log("    | UPC: {}".format(gamedata[3]))
+	                                log("    | Loose Price: {}".format(gamedata[4]))
+	                                log("    | CIB Price: {}".format(gamedata[5]))
+	                                log("    | New Price: {}".format(gamedata[6]))
+	                                log("    | URL to game: {}".format(gamedata[1]))
+	                                log("    | Console: {}".format(gamedata[7]))
+	
+	                                i+=1
+	
+	                        reply += "---\n"
+	                        reply += "^I ^am ^a ^bot ^and ^this ^was ^done ^automatically. ^Please ^downvote ^this ^post ^if ^you ^want ^it ^removed.\n\n"
+	                        reply += "[^View ^wiki ^to ^learn ^how ^to ^use ^this ^bot](http://www.reddit.com/r/multiplayers/wiki/game_arbitrage_bot) ^| [^What ^is ^a ^bot?](http://www.reddit.com/r/botwatch/wiki/faq) ^|                                                        [^Did ^this ^bot ^mess ^up?  ^Let ^me ^know!](http://www.reddit.com/message/compose/?to=ninjanerdbgm) ^| [^Source ^Code](https://github.com/ninjanerdbgm/GAB)"
+	
+	                        if "CIB" in reply:
+	                        	try:
+	                                	submission.add_comment(reply) # Post our built reply.
+	                                        with open("replyids", "a") as ids:
+	                                        	ids.write("{}\n".format(submission.name))
+	                                                ids.write("{}\n".format(submission.id))
+	                                                cmdsreplied+=1
+	                                        ids.close()
+	                                        log("    | Posted a reply.  The comment can be found here: {}".format(submission.short_link))
+	                                except praw.errors.RateLimitExceeded:
+	                                        log("    | Error posting reply.  Rate limit is in effect.")
+	                                        cmdsfailed+=1
+	                                        pass
 			
 		submission.replace_more_comments(limit=None, threshold=0)
 
@@ -335,11 +439,17 @@ while True:
 			
 				elif "[[" in comment.body:
 					reply = "# &nbsp;\n"
-					author = comment.author
+
+					if "[[" in comment.body:
+						what = comment
+					else:
+						what = submission
+
+					author = what.author
 					if author.name == BOT_USERNAME:
 						continue
-					y = list(find_all(comment.body, "[["))
-					z = list(find_all(comment.body, "]]"))
+					y = list(find_all(what.body, "[["))
+					z = list(find_all(what.body, "]]"))
 					
 					numgames = len(y) # How many commands were posted?
 					if numgames > 2:
@@ -353,7 +463,7 @@ while True:
 						consearch = 0
 	
 						while x < z[i]:
-							search += comment.body[x]
+							search += what.body[x]
 							x+=1
 
 						if "|" in search:
