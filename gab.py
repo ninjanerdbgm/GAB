@@ -20,6 +20,11 @@ Alpha, but less so than of my StoryAggregatorBot.
 
 Anyway.
 
+The wiki for this bot can be found here:
+http://www.reddit.com/r/multiplayers/wiki/game_arbitrage_bot
+
+Here's a quick rundown:
+
 This bot responds to a command such as:
 !GAB "final fantasy 7"
 
