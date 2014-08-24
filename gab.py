@@ -150,6 +150,9 @@ while True:
 		ids = open('replyids', 'r')
 		cids = mmap.mmap(ids.fileno(), 0, access=mmap.ACCESS_READ)
 		ids.close()
+		upclibs = open('upclibrary', 'r')
+		upcsn = mmap.mmap(upclibs.fileno(), 0, access=mmap.ACCESS_READ)
+		upclibs.close()
 	
 		whatsubs = SUBREDDITS.split("+")
 		whatsubs = [x if x.startswith("/r/") else "/r/" + x for x in whatsubs] # This is just to make the terminal output nice.
@@ -158,9 +161,10 @@ while True:
 		searchred = 0
 	
 		subreddit = r.get_subreddit(SUBREDDITS)
-		getsubposts = subreddit.get_hot(limit=200)
+		getsubpostnew = subreddit.get_new(limit=100)
+		getsubposthot = subreddit.get_hot(limit=100)		
 		
-		for submission in getsubposts:
+		for submission in getsubpostnew and getsubposthot:
 	
 			if "[[" in submission.selftext:
 				if cids.find(submission.name) == -1:
@@ -237,6 +241,11 @@ while True:
 		                                log("    | New Price: {}".format(gamedata[6]))
 		                                log("    | URL to game: {}".format(gamedata[1]))
 		                                log("    | Console: {}".format(gamedata[7]))
+
+						if upcsn.find(gamename[3]) == -1:
+							with open("upclibrary", "a") as ids:
+                                                		ids.write("{}|{}|{}\n".format(gamedata[0],gamedata[7],gamedata[3]))
+							ids.close()
 		
 		                                i+=1
 		
@@ -519,7 +528,16 @@ while True:
 							log("    | New Price: {}".format(gamedata[6]))
 							log("    | URL to game: {}".format(gamedata[1]))
 							log("    | Console: {}".format(gamedata[7]))
-								
+		
+							"""
+							====================================
+							Let's build a library of UPCs.  This might mitigate searching later.
+							====================================
+							"""
+							if upcsn.find(gamename[3]) == -1:
+								with open("upclibrary", "a") as ids:
+                                                                        ids.write("{}|{}|{}\n".format(gamedata[0],gamedata[7],gamedata[3]))
+								ids.close()
 							i+=1
 	
 						reply += "---\n"
@@ -616,7 +634,8 @@ while True:
 
 	except Exception, e: # I'm not entirely sure what the error is, but let's catch it anyway.
 		log("I AM ERROR.  UNABLE TO REDDIT. --> {}".format(str(e)))
-		raise
+		time.sleep(60)
+		pass
 	
 	"""
 	"""
