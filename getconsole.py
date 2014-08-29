@@ -8,16 +8,18 @@ Until it can learn to make better searches on its own, this will have to do.
 ===================================================================================
 """
 
-def getConsole(g,c):
+def getConsole(g="",c=""):
 	gam = ""
 	con = ""
-	g = str(g).lower()
-	c = str(c).lower()
+	if g:
+		g = str(g).lower()
+	if c:
+		c = str(c).lower()
 	if c and g:
 		if c == "snes":
 			con = "super nintendo"
 		elif c == "nes":
-			con = "nintendo nes"
+			con = "nes"
 		elif c == "n64":
 			con = "nintendo 64"
 		elif c == "gcn":
@@ -76,7 +78,7 @@ def getConsole(g,c):
                         con = "atari 5200"
                 elif c == "7800":
                         con = "atari 7800"
-                elif c == "400" or "800":
+                elif c == "400":
                         con = "atari 400"
                 elif c == "lynx":
                         con = "atari lynx"
@@ -113,9 +115,7 @@ def getConsole(g,c):
                 elif c == "v20":
                         con = "vic-20"
 		else:
-			con = "Error"
-	else:
-		con = None
+			con = c
 	if g == "":
                 if c == "nes":
 			con = "045496610104" 

@@ -1,6 +1,7 @@
 from webscraping import download, xpath
 import urllib2
 import itertools
+import time
 import random
 import re
 
@@ -19,6 +20,7 @@ http://docs.webscraping.com/
 Looks odd, but it kind of works tho
 ===============================================
 """
+
 
 """
 ==============================================
@@ -93,25 +95,35 @@ def scrapePC(gamename, con=None):
 		console = con
 #		console = console.replace("{}".format(console),"\"{}\"".format(console))
 	else:
-		console = None
+		console = ""
 	
-        PC = urllib2.Request("https://www.duckduckgo.com/html/?q=!ducky+{}+site%3Apricecharting.com+t%3A{}+prices".format(console, search))
+	if search <> "":
+		duckduckgo = "https://www.duckduckgo.com/html/?q=!ducky+{}+site%3Apricecharting.com+t%3A\"{}\"+prices".format(console, search)
+	else:
+                duckduckgo = "https://www.duckduckgo.com/html/?q=!ducky+{}+site%3Apricecharting.com+t%3A{}+prices".format(console, search)
+		
+        PC = urllib2.Request(duckduckgo)
+	PC.add_header('User-Agent', chrome)
 		
 	url = urllib2.urlopen(PC)
+	time.sleep(1)
 	infopage = url.read()
 	redir = url.geturl()
+	ddg = re.compile("duckduckgo")
+	gm = re.compile("game")
 
-	if "duckduckgo" in redir:
+	if ddg.match(redir):
 		nopc=1
-		print("No results were found for {}!".format(gamename))
+		return nopc
+	if "game" not in redir:
+		nopc=1
 		return nopc
 	
 	gamedata = []
 
         gameinfo = xpath.get(infopage, '//h1[@id="product_name"') # Get the game's title
-	gametitle = gameinfo.strip("Prices")
+	gametitle = gameinfo.replace("Prices", "")
 	gametitle = gametitle.strip(" \t\n\r")
-	print("GAMEINFO: {}".format(gametitle))
         gamedata.append(gametitle)
         gamedata.append(redir) 
         release = xpath.get(infopage, '//span[@class="date"]') # Get the game's release date
