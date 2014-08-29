@@ -4,6 +4,8 @@ from scrapers import *
 from getconsole import getConsole
 import praw
 import sys, time
+from pytz import timezone
+from datetime import datetime
 from time import strftime
 import re
 import mmap
@@ -49,6 +51,9 @@ Send an email to ninjanerdbgm at gmail dot com with any questions.
 BOT_USERNAME="" 
 BOT_PASSWORD=""
 
+V_LOGS=False # Change to True for verbose logging.  If True, logs everything output to terminal.  If False, logs hits and errors.
+TIMEZONE="US/Pacific-New" # This is for logging only.  Get your timezone string from here: http://stackoverflow.com/questions/13866926/python-pytz-list-of-timezones
+
 """
 =====================================================================
 For the following, put the subreddits you want the bot active in.  
@@ -66,7 +71,34 @@ SUBREDDITS=""
 
 # That's all the configuration needed atm
 
-print("Game Arbitrage Bot is now running...")
+"""
+==================================================================
+Let's make functions!
+==================================================================
+"""
+
+def find_all(str, sub):
+        start = 0
+        while True:
+                start = str.find(sub, start)
+                if start == -1: return
+                yield start
+                start += len(sub)
+
+def log(string):
+        with open('gablog', 'a') as logfile:
+		localtz = timezone(TIMEZONE)
+		getlt = datetime.now(localtz)
+		now = getlt.strftime("%Y/%m/%d %H:%M:%S")
+                logfile.write("{} - {}\n".format(now,string))
+                print(string)
+        logfile.close()
+
+"""
+=================
+"""
+
+log("Game Arbitrage Bot is now running...")
 
 """
 =====================================================================
@@ -76,11 +108,11 @@ It's good reddit practice to not hide that this is a bot.
 =====================================================================
 """
 
-r = praw.Reddit('GameDeals Game Arbitrage Bot, v0.001'
+r = praw.Reddit('GameCollecting Game Arbitrage Bot, v0.001'
 		'Listing game prices from three major sites.'
 		'by /u/ninjanerdbgm')
 
-print("Attempting to connect to reddit...")
+log("Attempting to connect to reddit...")
 
 loggedin=0
 
@@ -89,9 +121,9 @@ while loggedin==0:
 		r.login(BOT_USERNAME, BOT_PASSWORD)
 		loggedin=1
 	except:
-		print("Unable to connect.  Reddit might be down.  Trying again in a few minutes...")
+		log("Unable to connect.  Reddit might be down.  Trying again in a few minutes...")
 		time.sleep(300)
-print("Success!") # Whoo hoo!
+log("Success!") # Whoo hoo!
 
 """
 ===================================================================
@@ -102,30 +134,8 @@ Define flags
 pmindex = "-pm"
 
 """
-==================================================================
-Let's make functions!
-==================================================================
+========
 """
-
-def find_all(str, sub):
-	start = 0
-	while True:
-		start = str.find(sub, start)
-		if start == -1: return
-		yield start
-		start += len(sub)
-
-def log(string):
-	with open('gablog', 'a') as logfile:
-		now = strftime("%Y/%m/%d %H:%M:%S")
-		logfile.write("{} - {}\n".format(now,string))
-		print(string)
-	logfile.close()
-
-		
-
-
-
 
 while True:
 
@@ -156,118 +166,136 @@ while True:
 	
 		whatsubs = SUBREDDITS.split("+")
 		whatsubs = [x if x.startswith("/r/") else "/r/" + x for x in whatsubs] # This is just to make the terminal output nice.
-	
-		print("Searching {} posts for bot requests...".format(", ".join(whatsubs))) 
+		
+		if V_LOGS:	
+			log("Searching {} posts for bot requests...".format(", ".join(whatsubs)))
+		else:
+			print("Searching {} posts for bot requests...".format(", ".join(whatsubs)))
+
 		searchred = 0
 	
 		subreddit = r.get_subreddit(SUBREDDITS)
 		getsubpostnew = subreddit.get_new(limit=100)
-		getsubposthot = subreddit.get_hot(limit=100)		
+		getsubposthot = subreddit.get_hot(limit=200)	
 		
-		for submission in getsubpostnew and getsubposthot:
-	
-			if "[[" in submission.selftext:
-				if cids.find(submission.name) == -1:
-					reply = "# &nbsp;\n"
-	
-		                        author = submission.author
-		                        if author.name == BOT_USERNAME: # If, for some reason, this bot makes a selfpost with a command in it.
-		                        	continue
-		                        y = list(find_all(submission.selftext, "[["))
-		                        z = list(find_all(submission.selftext, "]]"))
-		
-		                        numgames = len(y) # How many commands were posted?
-		                        if numgames > 2:
-		                        	numgames = 3
-		
-		                        i = 0
-				
-		                        while i < numgames:
-		                        	search, game, console = "","",""
-		                                x = y[i]+2
-		                                consearch = 0
-		
-		                                while x < z[i]:
-		                                	search += submission.selftext[x]
-		                                        x+=1
-		
-		                                if "|" in search:
-		                                	search = search.split("|")
-		                                        game = search[0]
-		                                        console = search[1]
-		                                        if game:
-		                                        	log("Found a selftext Price Chart request for {} on {}!".format(game,console))
-		                                        else:
-		                                                consearch = 1
-		                                                log("Found a selftext Price Chart request for a console!")
-		                                else:
-		                                	game = search
-		                                        console = None
-		                                        log("Found a selftext Price Chart request for {}!".format(game))
-		
-		                                game,console = getConsole(game,console)
-		                                time.sleep(1)
-		                                gamedata = scrapePC(game,console)
-		                                time.sleep(1)
-		
-		                                if gamedata == 1:       # No search results.
-		                                	"""
-		                                        PLACEHOLDER!  How should we handle missing results?  I don't want to clog
-		                                        up the post with "not found, sorry" messages.
-		                                        """
-		                                        i+=1
-		                                        continue
-		
-		
-		                                """
-		                                gamedata comes back as a list filled with info about the game.
-		                                The order of the info in the list is:
-		                                Game Name, Link URL, Release Date, UPC Code, Loose Price, CIB Price, and New Price.
-		 
-		                                Let's build our reply.
-		                                """
-		                                if consearch == 0:
-		                                	reply += "###Prices for [{}]({}), released for {} on {}:\n".format(gamedata[0],gamedata[1],gamedata[7],gamedata[2])
-		                                else:
-		                                        reply += "###Prices for [{}]({}), released on {}:\n".format(gamedata[0],gamedata[1],gamedata[2])
-		
-		                                reply += " - Loose: **{}** | CIB: **{}** | New: **{}**\n\n".format(gamedata[4],gamedata[5],gamedata[6])
-		
-		                                log("    | Game Title: {}".format(gamedata[0]))
-		                                log("    | Release Date: {}".format(gamedata[2]))
-		                                log("    | UPC: {}".format(gamedata[3]))
-		                                log("    | Loose Price: {}".format(gamedata[4]))
-		                                log("    | CIB Price: {}".format(gamedata[5]))
-		                                log("    | New Price: {}".format(gamedata[6]))
-		                                log("    | URL to game: {}".format(gamedata[1]))
-		                                log("    | Console: {}".format(gamedata[7]))
+		for submission in (getsubpostnew and getsubposthot):
 
-						if upcsn.find(gamename[3]) == -1:
-							with open("upclibrary", "a") as ids:
-                                                		ids.write("{}|{}|{}\n".format(gamedata[0],gamedata[7],gamedata[3]))
-							ids.close()
+			if "[[IGNORE]]" in submission.selftext or "[[IGNORE]]" in submission.title: # Should the bot specifically ignore this post?
+				continue
+
+			"""
+			Check self posts for pricecharting requests
+			"""
+			
+			if submission.selftext <> "":
+				if "[[" in submission.selftext:
+					if cids.find(submission.name) == -1:
+						reply = "# &nbsp;\n"
 		
-		                                i+=1
-		
-		                        reply += "---\n"
-		                        reply += "^I ^am ^a ^bot ^and ^this ^was ^done ^automatically. ^Please ^downvote ^this ^post ^if ^you ^want ^it ^removed.\n\n"
-		                        reply += "[^View ^wiki ^to ^learn ^how ^to ^use ^this ^bot](http://www.reddit.com/r/multiplayers/wiki/game_arbitrage_bot) ^| [^What ^is ^a ^bot?](http://www.reddit.com/r/botwatch/wiki/faq) ^|                                                        [^Did ^this ^bot ^mess ^up?  ^Let ^me ^know!](http://www.reddit.com/message/compose/?to=ninjanerdbgm) ^| [^Source ^Code](https://github.com/ninjanerdbgm/GAB)"
-		
-		                        if "CIB" in reply:
-		                        	try:
-		                                	submission.add_comment(reply) # Post our built reply.
-		                                        with open("replyids", "a") as ids:
-		                                        	ids.write("{}\n".format(submission.name))
-		                                                ids.write("{}\n".format(submission.id))
-		                                                cmdsreplied+=1
-		                                        ids.close()
-		                                        log("    | Posted a reply.  The comment can be found here: {}".format(submission.short_link))
-		                                except praw.errors.RateLimitExceeded:
-		                                        log("    | Error posting reply.  Rate limit is in effect.")
-		                                        cmdsfailed+=1
-		                                        pass
-				
-			submission.replace_more_comments(limit=None, threshold=0)
+			                        author = submission.author
+			                        if author.name == BOT_USERNAME: # If, for some reason, this bot makes a selfpost with a command in it.
+			                        	continue
+			                        y = list(find_all(submission.selftext, "[["))
+			                        z = list(find_all(submission.selftext, "]]"))
+			
+			                        numgames = len(y) # How many commands were posted?
+			                        if numgames > 4:
+			                        	numgames = 5
+			
+			                        i = 0
+					
+			                        while i < numgames:
+			                        	search, game, console = "","",""
+			                                x = y[i]+2
+			                                consearch = 0
+			
+			                                while x < z[i]:
+			                                	search += submission.selftext[x]
+			                                        x+=1
+			
+			                                if "|" in search:
+			                                	search = search.split("|")
+			                                        game = search[0]
+			                                        console = search[1]
+			                                        if game:
+			                                        	log("Found a selftext Price Chart request for {} on {}!".format(game,console))
+			                                        else:
+			                                                consearch = 1
+			                                                log("Found a selftext Price Chart request for a console!")
+							else:
+			                                	game = search
+			                                        console = ""
+			                                        log("Found a selftext Price Chart request for {}!".format(game))
+			
+							print(console)
+			                                game,console = getConsole(game,console)
+			                                time.sleep(1)
+			                                gamedata = scrapePC(game,console)
+			                                time.sleep(1)
+			
+			                                if gamedata == 1:       # No search results.
+			                                	"""
+			                                        PLACEHOLDER!  How should we handle missing results?  I don't want to clog
+			                                        up the post with "not found, sorry" messages.
+			                                        """
+								log("Couldn't find any results for {}!".format(game))
+			                                        i+=1
+			                                        continue
+			
+			
+			                                """
+			                                gamedata comes back as a list filled with info about the game.
+			                                The order of the info in the list is:
+			                                Game Name, Link URL, Release Date, UPC Code, Loose Price, CIB Price, and New Price.
+			 
+			                                Let's build our reply.
+			                                """
+			                                if consearch == 0:
+			                                	reply += "###Prices for [{}]({}), released for {} on {}:\n".format(gamedata[0],gamedata[1],gamedata[7],gamedata[2])
+			                                else:
+			                                        reply += "###Prices for [{}]({}), released on {}:\n".format(gamedata[0],gamedata[1],gamedata[2])
+			
+			                                reply += " - Loose: **{}** | CIB: **{}** | New: **{}**\n\n".format(gamedata[4],gamedata[5],gamedata[6])
+			
+			                                log("    | Game Title: {}".format(gamedata[0]))
+			                                log("    | Release Date: {}".format(gamedata[2]))
+			                                log("    | UPC: {}".format(gamedata[3]))
+			                                log("    | Loose Price: {}".format(gamedata[4]))
+			                                log("    | CIB Price: {}".format(gamedata[5]))
+			                                log("    | New Price: {}".format(gamedata[6]))
+			                                log("    | URL to game: {}".format(gamedata[1]))
+			                                log("    | Console: {}".format(gamedata[7]))
+	
+							if upcsn.find(gamedata[3]) == -1:
+								with open("upclibrary", "a") as ids:
+	                                                		ids.write("{}|{}|{}\n".format(gamedata[0],gamedata[7],gamedata[3]))
+								ids.close()
+			
+			                                i+=1
+			
+			                        reply += "---\n"
+			                        reply += "^I ^am ^a ^bot ^and ^this ^was ^done ^automatically. ^Please ^downvote ^this ^post ^if ^you ^want ^it ^removed.\n\n"
+			                        reply += "[^View ^wiki ^to ^learn ^how ^to ^use ^this ^bot](http://www.reddit.com/r/multiplayers/wiki/game_arbitrage_bot) ^| [^What ^is ^a ^bot?](http://www.reddit.com/r/botwatch/wiki/faq) ^|                                                        [^Did ^this ^bot ^mess ^up?  ^Let ^me ^know!](http://www.reddit.com/message/compose/?to=ninjanerdbgm) ^| [^Source ^Code](https://github.com/ninjanerdbgm/GAB)"
+			
+			                        if "CIB" in reply:
+			                        	try:
+			                                	submission.add_comment(reply) # Post our built reply.
+			                                        with open("replyids", "a") as ids:
+			                                        	ids.write("{}\n".format(submission.name))
+			                                                ids.write("{}\n".format(submission.id))
+			                                                cmdsreplied+=1
+			                                        ids.close()
+			                                        log("    | Posted a reply.  The comment can be found here: {}".format(submission.short_link))
+			                                except praw.errors.RateLimitExceeded:
+			                                        log("    | Error posting reply.  Rate limit is in effect.")
+			                                        cmdsfailed+=1
+			                                        pass
+	
+				"""
+				Done checking self posts, check comments
+				"""
+					
+			submission.replace_more_comments(limit=None)
 	
 			for comment in praw.helpers.flatten_tree(submission.comments): # This flattens the comment tree.  This makes it so we can reply to comments no matter what level they are on.
 			
@@ -278,7 +306,7 @@ while True:
 						with open('replyids', 'r') as sc:
 							for thing in sc:
 								subs.update(re.findall(r'{}'.format(submission.id),thing))
-						if subs[submission.id] > 6:
+						if subs[submission.id] > 20:
 							log("I've already replied to this one topic too much.  Ignoring...")
 							continue
 						
@@ -464,8 +492,8 @@ while True:
 						z = list(find_all(what.body, "]]")) # Find all instances of ']]'
 						
 						numgames = len(y) # How many commands were posted?
-						if numgames > 2:
-							numgames = 3
+						if numgames > 4:
+							numgames = 5
 	
 						i = 0
 				
@@ -489,7 +517,7 @@ while True:
 									log("Found a Price Chart request for a console!")
 							else:
 								game = search
-								console = None
+								console = ""
 								log("Found a Price Chart request for {}!".format(game))
 	
 							game,console = getConsole(game,console)
@@ -502,6 +530,7 @@ while True:
 								PLACEHOLDER!  How should we handle missing results?  I don't want to clog
 								up the post with "not found, sorry" messages.
 								"""
+								log("Couldn't find any results for {}!".format(game))
 								i+=1
 								continue
 					
@@ -534,7 +563,7 @@ while True:
 							Let's build a library of UPCs.  This might mitigate searching later.
 							====================================
 							"""
-							if upcsn.find(gamename[3]) == -1:
+							if upcsn.find(gamedata[3]) == -1:
 								with open("upclibrary", "a") as ids:
                                                                         ids.write("{}|{}|{}\n".format(gamedata[0],gamedata[7],gamedata[3]))
 								ids.close()
@@ -557,17 +586,19 @@ while True:
 			                                        log("    | Error posting reply.  Rate limit is in effect.")
 			                                        cmdsfailed+=1
 			                                        pass
-						
-		
 				else:
 					foundpostcount+=1
 			elipses += "." # Ooo yea grrl.  Get that sweet, sweet text animation grrl.
 			sys.stdout.write("Working{}\r".format(elipses)) # THOSE ELIPSES ARE SO DYNAMIC
 			sys.stdout.flush()
 	
-	        log("\nLooking for unpopular bot posts...")
+	        if V_LOGS:
+			log("\nLooking for unpopular bot posts...")
+		else:
+			print("\nLooking for unpopular bot posts...")
+
 	        user = r.get_redditor(BOT_USERNAME) # We wanna find our own posts.
-	        for i in user.get_comments(limit=500):      # The limit here can be changed, but 300 posts is sufficient history for what we're trying to do.
+	        for i in user.get_comments(limit=500):      # The limit here can be changed, but 500 posts is sufficient history for what we're trying to do.
 	                
 			if i.score <= 0: # Did some asshole downvote my bot to oblivion?
 				log("        | Comment to post: \"{0}\" with an id of {1} currently has a score of {2}\n         ---> Post can be found here: {3}".format(i.submission.title,i.id,i.score,i.permalink))
@@ -580,14 +611,23 @@ while True:
 	        """ ======================== """
 	
 	
-	        log("\nAll done for this round!  Here are some stats:\n========================================")
-		time.sleep(1) # For reasons.
-		log("Commands found and replied to: {}".format(cmdsreplied))
-		log("Commands found, but couldn't reply to: {}".format(cmdsfailed))
-		log("Commands already replied to: {}\n".format(foundpostcount))
-		log("Own Posts Deleted: {}\n".format(hatedposts))
+		if V_LOGS:
+		        log("\nAll done for this round!  Here are some stats:\n========================================")
+			time.sleep(1) # For reasons.
+			log("Commands found and replied to: {}".format(cmdsreplied))
+			log("Commands found, but couldn't reply to: {}".format(cmdsfailed))
+			log("Commands already replied to: {}\n".format(foundpostcount))
+			log("Own Posts Deleted: {}\n".format(hatedposts))
+		else:
+			print("\nAll done for this round!  Here are some stats:\n========================================")
+                        time.sleep(1) # For reasons.
+                        print("Commands found and replied to: {}".format(cmdsreplied))
+                        print("Commands found, but couldn't reply to: {}".format(cmdsfailed))
+                        print("Commands already replied to: {}\n".format(foundpostcount))
+                        print("Own Posts Deleted: {}\n".format(hatedposts))
+	
 		time.sleep(1) # Again.
-	        i=30 # I had this at 600, but this bot is ok running every 5 minutes instead of 10.  
+	        i=30 # I had this at 600, but this bot is ok running every 30 seconds instead of 10 minutes.  
 			# You can always change it to whatever.  5 minutes should be ok tho.
 	
 	        """
