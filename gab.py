@@ -147,6 +147,7 @@ while True:
 		hatedposts=0
 	
 		elipses="" # This is for a sweet animation later.
+		modlist = "" # Initialize the mod list..
 		
 		""" 
 		=====================================================================
@@ -165,6 +166,12 @@ while True:
 		upclibs.close()
 	
 		whatsubs = SUBREDDITS.split("+")
+		
+		x = 0							#
+		while x < len(whatsubs):				# 
+			modlist += str(r.get_moderators(whatsubs[x]))	# This block generates a list of moderators.
+			x+=1						#
+		
 		whatsubs = [x if x.startswith("/r/") else "/r/" + x for x in whatsubs] # This is just to make the terminal output nice.
 		
 		if V_LOGS:	
@@ -179,9 +186,15 @@ while True:
 		getsubposthot = subreddit.get_hot(limit=200)	
 		
 		for submission in (getsubpostnew and getsubposthot):
+			
+			is_mod = submission.author
 
-			if "[[IGNORE]]" in submission.selftext or "[[IGNORE]]" in submission.title: # Should the bot specifically ignore this post?
-				continue
+			if re.search('\[\[[Ii][Gg][Nn][Oo][Rr][Ee]\]\]', submission.selftext) or re.search('\[\[[Ii][Gg][Nn][Oo][Rr][Ee]\]\]',submission.title): # Should the bot specifically ignore this post?
+				if is_mod.name in modlist:
+					log("Got an ignore request for \"{}\".  Link: {}.  Ignoring...".format(submission.title,submission.short_link))
+					continue
+				else:
+					log("Got an ignore request from someone who isn't a mod.")
 
 			"""
 			Check self posts for pricecharting requests
